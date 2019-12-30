@@ -1,0 +1,90 @@
+version: "3.3"
+
+services:
+  traefik:
+    image: traefik:v2.0
+    restart: always
+    container_name: traefik
+    command:
+      - --api.insecure=true # <== Enabling insecure api, NOT RECOMMENDED FOR PRODUCTION
+      - --api.dashboard=true # <== Włączenie dasboardu
+      - --api.debug=true # <== Enabling additional endpoints for debugging and profiling
+      - --log.level=DEBUG # <== Setting the level of the logs from traefik
+      - --metrics.prometheus=true # <== włączenie metryk dla prometheusa
+      - --metrics.prometheus.addEntryPointsLabels=true
+      - --metrics.prometheus.addServicesLabels=true
+      - --metrics.prometheus.buckets=0.100000, 0.300000, 1.200000, 5.000000
+      - --metrics.prometheus.entryPoint=metrics # <== ustawienie endpointu dla metryk
+      - --entryPoints.metrics.address=:8082 # <== ustawienie portu dla metryk
+      - --providers.docker=true # <== Enabling docker as the provider for traefik
+      - --providers.docker.exposedbydefault=false # <== Don't expose every container to traefik, only expose enabled ones
+      - --providers.docker.network=external # <== Operate on the docker network named web
+      - --entrypoints.external.address=:80 # <== Defining an entrypoint for port :80 named web
+      #- --entrypoints.web-secured.address=:443 # <== Defining an entrypoint for https on port :443 named web-secured
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+      - "8082:8082"
+    networks:
+      - external
+      - internal
+    labels: 
+      - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
+      - "traefik.http.routers.api.rule=Host(`traefik.localhost`)" # <== Setting the domain for the dashboard
+      - "traefik.http.routers.api.service=api@internal" # <== Enabling the api to be a service to access
+
+  prometheus:
+    image: prom/prometheus
+    restart: always
+    container_name: prometheus
+    volumes:
+      - ${PWD}/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    networks:
+      - external
+      - internal
+    labels:
+      - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)" # <== Your Domain Name goes here for the http rule
+      - "traefik.http.routers.prometheus.entrypoints=external" # <== Defining the entrypoint for http, **ref: line 30
+
+  node_exporter:
+    image: prom/node-exporter
+    restart: always
+    container_name: node_exporter
+    ports:
+      - 9100:9100
+    networks:
+      - internal
+    depends_on:
+      - prometheus    
+
+  grafana:
+    image: grafana/grafana
+    restart: always
+    container_name: grafana
+    volumes:
+      - grafana:/var/lib/grafana
+    ports:
+      - 3000:3000
+    networks:
+      - internal
+      - external
+    labels:
+      - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
+      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)" # <== Your Domain Name goes here for the http rule
+      - "traefik.http.routers.grafana.entrypoints=external" # <== Defining the entrypoint for http, **ref: line 30
+    depends_on:
+      - prometheus  
+
+networks:
+  internal:
+  external:
+    driver: bridge
+
+volumes:
+  grafana:
