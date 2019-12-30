@@ -1,4 +1,10 @@
-version: "3.3"
+# TODO Dodać resource Limit dla każdego z kontenerów
+# TODO Dodać bazę mysql oraz monitoring oparty o prometheusa
+# TODO Dodać autentykacje basicAuth dla Traefik
+# FIXME Naprawić połączenie mysql z phpmyadmin
+# TODO Dodać percona 
+#
+version: "3.7"
 
 services:
   traefik:
@@ -20,12 +26,15 @@ services:
       - --providers.docker.exposedbydefault=false # <== Don't expose every container to traefik, only expose enabled ones
       - --providers.docker.network=external # <== Operate on the docker network named web
       - --entrypoints.external.address=:80 # <== Defining an entrypoint for port :80 named web
+      - --providers.docker.network=mysql # <== Operate on the docker network named web
+      - --entrypoints.external.address=:3306 # <== Defining an entrypoint for port :80 named web
       #- --entrypoints.web-secured.address=:443 # <== Defining an entrypoint for https on port :443 named web-secured
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "80:80"
       - "443:443"
+      - "3306:3306"
       - "8080:8080"
       - "8082:8082"
     networks:
@@ -51,6 +60,9 @@ services:
       - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
       - "traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)" # <== Your Domain Name goes here for the http rule
       - "traefik.http.routers.prometheus.entrypoints=external" # <== Defining the entrypoint for http, **ref: line 30
+      - "traefik.http.routers.prometheus.middlewares=prometheus@docker"
+      - "traefik.http.middlewares.prometheus.basicauth.users=admin:$$apr1$$j9zyBFxS$$Olr3XR4SVQ8pNn3YUbY/u/"
+      - "traefik.http.middlewares.prometheus.basicauth.removeheader=true"
 
   node_exporter:
     image: prom/node-exporter
@@ -61,12 +73,27 @@ services:
     networks:
       - internal
     depends_on:
-      - prometheus    
+      - prometheus
+
+  mysql_exporter:
+    image: prom/mysqld-exporter
+    restart: always
+    environment: 
+      DATA_SOURCE_NAME: "phpmyadmin:testpasswd@(mysql:3306)"
+    ports: 
+      - 9104:9104
+    networks: 
+      - internal
+      - mysql
+    depends_on: 
+      - mysql
 
   grafana:
     image: grafana/grafana
     restart: always
     container_name: grafana
+    environment:
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
     volumes:
       - grafana:/var/lib/grafana
     ports:
@@ -79,10 +106,52 @@ services:
       - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)" # <== Your Domain Name goes here for the http rule
       - "traefik.http.routers.grafana.entrypoints=external" # <== Defining the entrypoint for http, **ref: line 30
     depends_on:
-      - prometheus  
+      - prometheus
+
+  mysql:
+    image: mysql/mysql-server
+    restart: always
+    container_name: mysql
+    environment: 
+      MYSQL_ROOT_PASSWORD: testpasswd
+      MYSQL_DATABASE: default_schema
+      MYSQL_USER: phpmyadmin
+      MYSQL_PASSWORD: testpasswd
+    ports:
+      - 3360:3306
+    networks: 
+      - internal
+      - external
+      - mysql
+    labels:
+      - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
+      - "traefik.http.routers.mysql.rule=Host(`mysql.localhost`)" # <== Your Domain Name goes here for the http rule
+      - "traefik.http.routers.mysql.entrypoints=mysql" # <== Defining the entrypoint for http, **ref: line 30
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    container_name: phpmyadmin
+    environment: 
+      PMA_ARBITRARY: 1
+      PMA_HOST: mysql.localhost
+      PMA_PORT: 3306
+      PMA_USER: phpmyadmin
+      PMA_PASSWORD: testpasswd
+    networks: 
+      - external
+      - internal
+      - mysql
+    labels: 
+      - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.localhost`)" # <== Your Domain Name goes here for the http rule
+      - "traefik.http.routers.phpmyadmin.entrypoints=external" # <== Defining the entrypoint for http, **ref: line 30
+    depends_on: 
+      - mysql
 
 networks:
   internal:
+  mysql:
   external:
     driver: bridge
 
