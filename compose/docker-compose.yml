@@ -26,8 +26,6 @@ services:
       - --providers.docker.exposedbydefault=false # <== Don't expose every container to traefik, only expose enabled ones
       - --providers.docker.network=external # <== Operate on the docker network named web
       - --entrypoints.external.address=:80 # <== Defining an entrypoint for port :80 named web
-      - --providers.docker.network=mysql # <== Operate on the docker network named web
-      - --entrypoints.external.address=:3306 # <== Defining an entrypoint for port :80 named web
       #- --entrypoints.web-secured.address=:443 # <== Defining an entrypoint for https on port :443 named web-secured
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -84,7 +82,6 @@ services:
       - 9104:9104
     networks: 
       - internal
-      - mysql
     depends_on: 
       - mysql
 
@@ -113,35 +110,23 @@ services:
     restart: always
     container_name: mysql
     environment: 
-      MYSQL_ROOT_PASSWORD: testpasswd
-      MYSQL_DATABASE: default_schema
-      MYSQL_USER: phpmyadmin
-      MYSQL_PASSWORD: testpasswd
+      ALLOW_EMPTY_PASSWORD: 'true'
     ports:
       - 3360:3306
     networks: 
       - internal
-      - external
-      - mysql
-    labels:
-      - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
-      - "traefik.http.routers.mysql.rule=Host(`mysql.localhost`)" # <== Your Domain Name goes here for the http rule
-      - "traefik.http.routers.mysql.entrypoints=mysql" # <== Defining the entrypoint for http, **ref: line 30
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: bitnami/phpmyadmin
     restart: always
     container_name: phpmyadmin
     environment: 
-      PMA_ARBITRARY: 1
-      PMA_HOST: mysql.localhost
-      PMA_PORT: 3306
-      PMA_USER: phpmyadmin
-      PMA_PASSWORD: testpasswd
+      DATABASE_HOST: mysql
+      DATABASE_PORT_NUMBER: 3306
+      PHPMYADMIN_ALLOW_NO_PASSWORD: 'true'
     networks: 
       - external
       - internal
-      - mysql
     labels: 
       - "traefik.enable=true" # <== Enable traefik on itself to view dashboard and assign subdomain to view it
       - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.localhost`)" # <== Your Domain Name goes here for the http rule
@@ -151,7 +136,6 @@ services:
 
 networks:
   internal:
-  mysql:
   external:
     driver: bridge
 
