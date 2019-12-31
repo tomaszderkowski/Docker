@@ -76,7 +76,7 @@ services:
     image: prom/mysqld-exporter
     restart: always
     environment: 
-      DATA_SOURCE_NAME: "phpmyadmin:testpasswd@(mysql:3306)"
+      DATA_SOURCE_NAME: "prometheus:passwd@(mysql:3306)/test"
     ports: 
       - 9104:9104
     networks: 
@@ -109,14 +109,17 @@ services:
     restart: always
     container_name: mysql
     environment:
-      MYSQL_ROOT_PASSWORD: passwd
-      MYSQL_USER: phpmyadmin
-      MYSQL_PASSWORD: passwd
-      MYSQL_HOST: mysql
+      MYSQL_ROOT_PASSWORD: 'passwd'
     ports:
       - 3360:3306
     networks: 
       - internal
+
+    #mysql -uroot -ppasswd -hlocalhost
+    #CREATE USER 'prometheus'@'%' IDENTIFIED BY 'passwd';
+    #GRANT ALL PRIVILEGES ON * . * TO 'prometheus'@'%';
+    #CREATE USER 'phpmyadmin'@'%' IDENTIFIED BY 'passwd';
+    #GRANT ALL PRIVILEGES ON * . * TO 'phpmyadmin'@'%';
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -125,7 +128,7 @@ services:
     environment: 
       PMA_HOST: mysql
       PMA_PORT: 3306
-      PMA_USER: root
+      PMA_USER: phpmyadmin
       PMA_PASSWORD: passwd
     networks: 
       - external
