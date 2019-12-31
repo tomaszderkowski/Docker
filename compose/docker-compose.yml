@@ -119,13 +119,13 @@ services:
       - internal
 
   phpmyadmin:
-    image: bitnami/phpmyadmin
+    image: phpmyadmin/phpmyadmin
     restart: always
     container_name: phpmyadmin
     environment: 
       PMA_HOST: mysql
       PMA_PORT: 3306
-      PMA_USER: phpmyadmin
+      PMA_USER: root
       PMA_PASSWORD: passwd
     networks: 
       - external
