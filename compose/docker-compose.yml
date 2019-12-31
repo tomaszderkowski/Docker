@@ -108,8 +108,11 @@ services:
     image: mysql/mysql-server
     restart: always
     container_name: mysql
-    environment: 
-      ALLOW_EMPTY_PASSWORD: 'true'
+    environment:
+      MYSQL_ROOT_PASSWORD: passwd
+      MYSQL_USER: phpmyadmin
+      MYSQL_PASSWORD: passwd
+      MYSQL_HOST: mysql
     ports:
       - 3360:3306
     networks: 
@@ -120,9 +123,10 @@ services:
     restart: always
     container_name: phpmyadmin
     environment: 
-      DATABASE_HOST: mysql
-      DATABASE_PORT_NUMBER: 3306
-      PHPMYADMIN_ALLOW_NO_PASSWORD: 'true'
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: phpmyadmin
+      PMA_PASSWORD: passwd
     networks: 
       - external
       - internal
