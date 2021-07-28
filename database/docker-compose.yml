@@ -1,0 +1,28 @@
+version: "3.7"
+services:
+  mariadb:
+    container_name: mariadb
+    image: yobasystems/alpine-mariadb:10.4.17
+    restart: unless-stopped
+    ports:
+      - 3306:3306
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+
+  phpmyadmin:
+    container_name: phpmyadmin
+    image: phpmyadmin@sha256:eb633f050716ee4d187b5a432d355f4fccb5a9cdb57865d31567c51ace7d80bf
+    restart: unless-stopped
+    ports:
+      - 8001:80
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+    depends_on:
+      - mariadb
+
+networks:
+  default:
+    external:
+      name: internal
+    
